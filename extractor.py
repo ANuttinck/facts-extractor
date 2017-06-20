@@ -54,7 +54,7 @@ def extractType(page):
 
 def eval_acc_goldenstd(predicted_fact):
 
-    with open('gold-standard-sample.tsv', mode='r') as infile:
+    with open('../gold-standard-sample.tsv', mode='r') as infile:
         reader = csv.reader(infile, delimiter='\t')
         goldenstd = {rows[0]:rows[1] for rows in reader}
 
