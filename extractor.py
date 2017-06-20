@@ -25,6 +25,11 @@ if len(sys.argv) != 3:
 def extractType(page):
     relations_list = ["is a", "is the", "are", "is an", "was the", "were", "was a", "was an"]
     relation_patterns = [r"(?<=\b%s\s)((\w*)(?:\s*))*" % rel for rel in relations_list]
+	"(is|means)\s+((the|a|an)\s+)?((part of|type of|one of)\s+)?((a|the)\s+)?((\w+)\s+)+(from|in|of|\W|that|for)"
+	"is.*(?=\s\bof\s)"
+	"(is|mean)\s+((the|a|an)\s+)?(\b\w+\b\s+)*(?P<type>\b\w+\b)(\b(from|in|of|that|for)\b)"
+	"\b(is|mean)\b\s+(\b(the|a|an)\b\s+)?(\w+\s+)*(?P<type>\w+)(\s+\b(from|in|of|that|for)\b)"
+	"\b(is|mean)\b\s+(\b(the|a|an)\b\s+)?(\b(part|type|one)\b\s+\bof\b\s+)+(\b(a|the)\b\s+)?(\w+(\')?\w+\s+)*(?P<type>\w+)(\s+\b(from|in|of|that|for)\b)(\s+\w+)*\.$"
     relations_re = re.compile('|'.join(relation_patterns))
     be_EofS = relations_re.search(page.content)
 
@@ -52,14 +57,14 @@ def extractType(page):
             return ""
 
 
-def eval_acc_goldenstd(predicted_fact):
+def eval_acc_goldstd(predicted_fact):
 
     with open('../gold-standard-sample.tsv', mode='r') as infile:
         reader = csv.reader(infile, delimiter='\t')
-        goldenstd = {rows[0]:rows[1] for rows in reader}
+        goldstd = {rows[0]:rows[1] for rows in reader}
 
-    scores = list(map(lambda ent: goldenstd[ent]==predicted_fact[ent],
-                        goldenstd.keys()))
+    scores = list(map(lambda ent: goldstd[ent]==predicted_fact[ent],
+                        goldstd.keys()))
 
     return float(sum(scores)) / len(scores)
 
@@ -73,4 +78,4 @@ with open(sys.argv[2], 'w', encoding="utf-8") as output:
 
         if typ:
             output.write(page.title + "\t" + typ + "\n")
-    print(eval_acc_goldenstd(types))
+    print(eval_acc_goldstd(types))
