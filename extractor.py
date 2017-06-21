@@ -13,7 +13,6 @@ If you do not know the type of an entity, skip the article.
 from parser import Parser
 from random import choice
 import string
-# import nltk
 import re
 import csv
 import sys
@@ -22,51 +21,48 @@ if len(sys.argv) != 3:
     print(__doc__)
     sys.exit(-1)
 
+
+# definition et compilation de la regex
+verbs = ["is", "are", "mean", "means", "was", "were", "will be", "to be"]
+dets = ["the", "a", "an", "The"]
+previous_noun = ["part(s)?", "type(s)?", "one(s)?", "style(s)?", "word(s)?", "set(s)?"]
+end_wds = ["from", "in", "of", "that", "for", "with", "and", "around",
+           "or", "on", "who", "where", "what", "which", "at", "by", "[a-z]+ed", "made"]
+
+end_pat = r"\b(\.|\,|(" + r"|".join(end_wds) + r")\b)"
+type_pat = r"(?P<type>[ \w\_\-\&\s\"]+?)\s?"
+
+complete_pat = r"\b(" + r"|".join(verbs) + r")\s+(((" + r"|".join(dets) + r")\s+)?(\w+\s+)*(" + \
+                r"|".join(previous_noun) + r")\s+(of|for)\s+)?((" + r"|".join(dets) + r")\s+)?" + type_pat + end_pat
+
+relations_re = re.compile(complete_pat)
+
 def extractType(page):
-    relations_list = ["is a", "is the", "are", "is an", "was the", "were", "was a", "was an"]
-    relation_patterns = [r"(?<=\b%s\s)((\w*)(?:\s*))*" % rel for rel in relations_list]
-	"(is|means)\s+((the|a|an)\s+)?((part of|type of|one of)\s+)?((a|the)\s+)?((\w+)\s+)+(from|in|of|\W|that|for)"
-	"is.*(?=\s\bof\s)"
-	"(is|mean)\s+((the|a|an)\s+)?(\b\w+\b\s+)*(?P<type>\b\w+\b)(\b(from|in|of|that|for)\b)"
-	"\b(is|mean)\b\s+(\b(the|a|an)\b\s+)?(\w+\s+)*(?P<type>\w+)(\s+\b(from|in|of|that|for)\b)"
-	"\b(is|mean)\b\s+(\b(the|a|an)\b\s+)?(\b(part|type|one)\b\s+\bof\b\s+)+(\b(a|the)\b\s+)?(\w+(\')?\w+\s+)*(?P<type>\w+)(\s+\b(from|in|of|that|for)\b)(\s+\w+)*\.$"
-    relations_re = re.compile('|'.join(relation_patterns))
-    be_EofS = relations_re.search(page.content)
 
-    if be_EofS:
-        before_of = re.search("\w*(?=\s\bof)", be_EofS.group())
-        if before_of:
-            return before_of.group()
-        else:
-            """
-            tag_sentence = nltk.pos_tag(re.split("\s+", be_EofS.group()))
-            for wd, tag in tag_sentence:
-                if tag in ['NN']:
-                    return wd
-                else:
-                    return be_EofS[0]
-            """
-            return re.split("\s+", be_EofS.group())[0]
-
+    matching = relations_re.search(page.content)
+    if matching:
+        typ = matching.group("type")
+        return typ.split()[-1].strip()
     else:
-        list_of_words = re.split("\s+", page.content.replace(string.punctuation, ""))
-        potential_answer = [wd for wd in list_of_words if len(wd) > 2]
-        if potential_answer:
-            return choice(potential_answer)
-        else:
-            return ""
+        return ""
 
 
 def eval_acc_goldstd(predicted_fact):
 
-    with open('../gold-standard-sample.tsv', mode='r') as infile:
+    with open('./gold-standard-sample.tsv', mode='r', encoding='utf-8') as infile:
         reader = csv.reader(infile, delimiter='\t')
         goldstd = {rows[0]:rows[1] for rows in reader}
 
-    scores = list(map(lambda ent: goldstd[ent]==predicted_fact[ent],
+    scores = list(map(lambda ent: goldstd[ent] == predicted_fact[ent],
                         goldstd.keys()))
 
-    return float(sum(scores)) / len(scores)
+    non_empty = list(map(lambda ent: predicted_fact[ent] != "",
+                        goldstd.keys()))
+
+    precision = float(sum(scores)) / sum(non_empty)
+    rappel = float(sum(scores)) / len(scores)
+    
+    return precision, rappel
 
 
 with open(sys.argv[2], 'w', encoding="utf-8") as output:
@@ -77,4 +73,11 @@ with open(sys.argv[2], 'w', encoding="utf-8") as output:
 
         if typ:
             output.write(page.title + "\t" + typ + "\n")
-    print(eval_acc_goldstd(types))
+	
+precision_gs, rappel_gs = eval_acc_goldstd(types)
+non_empty = sum(map(lambda val: val != "", types.values()))
+print("Precision sur le gold standard: {0:.2%}".format(precision_gs))
+print("Rappel sur le gold standard: {0:.2%}".format(rappel_gs))
+print("F = {0:.2%}".format(2 * (rappel_gs * precision_gs)/(rappel_gs + precision_gs)))
+print("Nombre de predictions non nulles sur l'ensemble de {0}: {1}/{2}".format(sys.argv[1], non_empty, len(types.values())))
+print("Rappel maximal sur le gold standard {0}: {1:.2%}".format(sys.argv[1], non_empty / len(types.values())))
