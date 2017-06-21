@@ -73,7 +73,6 @@ with open(sys.argv[2], 'w', encoding="utf-8") as output:
     types = {}
     for page in Parser(sys.argv[1]):
         typ = extractType(page)
-
         types[page.title] = typ
 
         if typ:
